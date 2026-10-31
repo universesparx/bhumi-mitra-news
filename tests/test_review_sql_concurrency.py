@@ -10,12 +10,12 @@ SCHEMA = (Path(__file__).resolve().parents[1] / "cloudflare" /
           "migrations" / "0001_news_schema.sql").read_text(encoding="utf-8")
 
 UPDATE = """UPDATE editorial_items SET status=?, retracted=?,
-    version=version+1, updated_at=?
+    version=version+1, updated_at=?, last_review_event_id=?
     WHERE id=? AND version=? AND status=?"""
 AUDIT = """INSERT INTO review_events
     (id,item_id,action,reviewer_id,reason,occurred_at)
     SELECT ?,id,?,?,?,? FROM editorial_items
-    WHERE id=? AND version=? AND status=?"""
+    WHERE id=? AND version=? AND status=? AND last_review_event_id=?"""
 
 
 class ReviewConcurrencySQLTests(unittest.TestCase):
@@ -37,10 +37,10 @@ class ReviewConcurrencySQLTests(unittest.TestCase):
               next_status="approved"):
         with self.db:
             updated = self.db.execute(UPDATE, (
-                next_status, 0, "later", "a", old_version, old_status))
+                next_status, 0, "later", event_id, "a", old_version, old_status))
             audited = self.db.execute(AUDIT, (
                 event_id, "approve", "owner", "checked", "later",
-                "a", old_version+1, next_status))
+                "a", old_version+1, next_status, event_id))
             return updated.rowcount, audited.rowcount
 
     def test_approved_transition_has_one_audit(self):
@@ -68,10 +68,10 @@ class ReviewConcurrencySQLTests(unittest.TestCase):
           VALUES ('duplicate','a','create','owner','now')""")
         with self.assertRaises(sqlite3.IntegrityError):
             with self.db:
-                self.db.execute(UPDATE, ("approved",0,"later","a",1,"pending"))
+                self.db.execute(UPDATE, ("approved",0,"later","duplicate","a",1,"pending"))
                 self.db.execute(AUDIT, (
                     "duplicate","approve","owner","checked","later",
-                    "a",2,"approved"))
+                    "a",2,"approved","duplicate"))
         self.assertEqual(self.db.execute(
             "SELECT status,version FROM editorial_items").fetchone(),
             ("pending",1))
