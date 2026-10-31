@@ -21,8 +21,20 @@ test("dashboard never interpolates source text as HTML",()=>{
 });
 test("write form remains disabled until authenticated session enables writes",()=>{
  assert.match(html,/id="save" type="submit" disabled/);
- assert.match(html,/!session\.writes_enabled/);
+ assert.match(html,/canWrite=session\.writes_enabled===true/);
 });
 test("review requests include server-version concurrency and reason",()=>{
  assert.match(html,/version:item\.version,action,reason/);
+});
+
+test("image controls are gated by authenticated session and pending status",()=>{
+ assert.match(html,/canUpload=session\.image_writes_enabled===true/);
+ assert.match(html,/canUpload && item\.status==="pending" && !item\.image_key/);
+ assert.match(html,/X-Rights-Evidence-Id/);
+ assert.match(html,/image\.size>2097152/);
+});
+test("review lifecycle and audit history are available to owner",()=>{
+ assert.match(html,/\["retract","वापस लें"\]/);
+ assert.match(html,/\["correct","सुधार हेतु लौटाएँ"\]/);
+ assert.match(html,/\/api\/editorial\/history\?item_id=/);
 });
