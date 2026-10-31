@@ -18,7 +18,7 @@ export function validateDraft(draft) {
       throw Error("invalid_" + key);
   }
   if (!CATEGORIES.has(draft.category)) throw Error("invalid_category");
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(draft.source_publication_date))
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(draft.source_publication_date))
     throw Error("invalid_source_date");
   const parsedDate = new Date(draft.source_publication_date+"T00:00:00Z");
   if (!Number.isFinite(parsedDate.getTime()) ||
