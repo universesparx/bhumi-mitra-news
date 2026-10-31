@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>भू-अलर्ट बिहार — संपादकीय पूर्वावलोकन</title>
+<style>
+:root{font-family:system-ui,"Noto Sans Devanagari",sans-serif;color:#17332a;background:#f5f8f5}
+*{box-sizing:border-box}body{margin:0}header{background:#155b41;color:white;padding:1.1rem max(1rem,calc((100% - 1050px)/2))}
+main{max-width:1050px;margin:auto;padding:1rem;display:grid;gap:1rem;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+section{background:white;border:1px solid #d7e3d9;border-radius:14px;padding:1rem;min-width:0}
+h1{font-size:1.35rem;margin:0}h2{font-size:1.1rem;margin:0 0 .8rem}
+small{color:#526b60}label{display:block;font-weight:600;margin:.7rem 0 .2rem}
+input,textarea,select{width:100%;padding:.7rem;border:1px solid #9db8aa;border-radius:8px;font:inherit;background:white}
+textarea{min-height:110px}button{font:inherit;padding:.55rem .85rem;border-radius:8px;border:1px solid #155b41;background:#155b41;color:white;cursor:pointer}
+button.secondary{background:white;color:#155b41}button.danger{border-color:#a02c2c;background:white;color:#a02c2c}
+.actions{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.8rem}
+article{border-top:1px solid #d7e3d9;padding:.9rem 0;overflow-wrap:anywhere}
+article:first-child{border-top:0}article h3{margin:.2rem 0;font-size:1rem}
+.status{font-size:.8rem;color:#456658}#notice{min-height:1.3rem;color:#a02c2c}
+@media(max-width:760px){main{grid-template-columns:1fr}}
+</style></head><body>
+<header><h1>भू-अलर्ट बिहार · संपादकीय डेमो</h1><div>केवल स्थानीय पूर्वावलोकन — लॉगिन, सर्वर, प्रकाशन या डेटा-सिंक नहीं</div></header>
+<main><section><h2>नया समाचार ड्राफ्ट</h2>
+<form id="draftForm">
+<label for="headline">शीर्षक</label><input id="headline" maxlength="160" required>
+<label for="summary">संक्षिप्त विवरण</label><textarea id="summary" maxlength="1000" required></textarea>
+<label for="source">स्रोत का नाम</label><input id="source" maxlength="180" required>
+<label for="url">मूल स्रोत लिंक (HTTPS)</label><input id="url" type="url" placeholder="https://example.org/news" required>
+<label for="date">प्रकाशन तिथि</label><input id="date" type="date" required>
+<label for="category">श्रेणी</label><select id="category"><option value="survey">सर्वेक्षण</option><option value="circular">परिपत्र</option><option value="policy">नीति</option><option value="service">सेवा</option><option value="incident">घटना</option><option value="other">अन्य</option></select>
+<label for="district">जिला (वैकल्पिक)</label><input id="district" maxlength="120">
+<div class="actions"><button type="submit">ड्राफ्ट जोड़ें</button><button class="secondary" type="button" id="reset">डेमो रीसेट</button></div>
+<p id="notice" role="status" aria-live="polite"></p></form></section>
+<section><h2>समीक्षा कतार</h2><small>सभी प्रविष्टियाँ अस्थायी हैं। अनुमति-संबंधी जाँच यहाँ सत्यापित नहीं होती।</small>
+<div id="queue"></div><h2>स्वीकृत पूर्वावलोकन</h2><div id="approved"></div></section></main>
+<script>
+"use strict";
+// Memory-only data. Refreshing the page removes every draft and review.
+const items=[];let nextId=1;
+const $=id=>document.getElementById(id);
+const text=(tag,value)=>{const el=document.createElement(tag);el.textContent=value;return el;};
+function render(){
+ const queue=$("queue"),approved=$("approved");queue.replaceChildren();approved.replaceChildren();
+ for(const item of items){
+  const card=document.createElement("article");
+  card.append(text("h3",item.headline),text("div",item.summary),
+   text("small",item.source+" · "+item.date+" · "+item.category+" · "+item.district),
+   text("p","स्थिति: "+({pending:"समीक्षा लंबित",approved:"डेमो स्वीकृत",rejected:"अस्वीकृत"}[item.status])));
+  const actions=document.createElement("div");actions.className="actions";
+  if(item.status==="pending") for(const [status,label,cls] of [["approved","डेमो स्वीकृत करें",""],["rejected","अस्वीकार करें","danger"]]){
+   const btn=document.createElement("button");btn.type="button";btn.className=cls;btn.textContent=label;
+   btn.addEventListener("click",()=>{item.status=status;render();});actions.append(btn);
+  }
+  card.append(actions);queue.append(card);
+  if(item.status==="approved"){
+   const preview=document.createElement("article");const link=document.createElement("a");
+   link.href=item.url;link.rel="noopener noreferrer";link.target="_blank";link.textContent=item.source;
+   preview.append(text("h3",item.headline),text("p",item.summary),link);
+   approved.append(preview);
+  }
+ }
+ if(!items.length)queue.append(text("p","अभी कोई ड्राफ्ट नहीं।"));
+ if(!items.some(item=>item.status==="approved"))approved.append(text("p","अभी कोई स्वीकृत पूर्वावलोकन नहीं।"));
+}
+$("draftForm").addEventListener("submit",event=>{
+ event.preventDefault();const url=$("url").value.trim();let parsed;
+ try{parsed=new URL(url);if(parsed.protocol!=="https:"||parsed.username||parsed.password||parsed.hash||!parsed.hostname.includes("."))throw Error();}
+ catch{$("notice").textContent="मान्य HTTPS स्रोत लिंक दर्ज करें।";return;}
+ const today=new Date().toISOString().slice(0,10);
+ if($("date").value>today){$("notice").textContent="भविष्य की तिथि स्वीकार नहीं है।";return;}
+ if(items.some(item=>item.url===parsed.href)){$("notice").textContent="यह स्रोत लिंक पहले से मौजूद है।";return;}
+ items.push({id:nextId++,headline:$("headline").value.trim(),summary:$("summary").value.trim(),
+ source:$("source").value.trim(),url:parsed.href,date:$("date").value,category:$("category").value,
+ district:$("district").value.trim(),status:"pending"});
+ $("notice").textContent="";event.target.reset();render();
+});
+$("reset").addEventListener("click",()=>{items.length=0;nextId=1;$("notice").textContent="डेमो डेटा साफ़ किया गया।";render();});
+render();
+</script></body></html>
