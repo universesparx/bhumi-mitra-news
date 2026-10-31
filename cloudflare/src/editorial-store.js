@@ -70,19 +70,31 @@ export async function reviewDraft(db, {id, action, version, reviewerId, reason, 
     rights_checked,retracted,image_key FROM editorial_items WHERE id=?`).bind(id).first();
   if (!item) throw Error("not_found");
   if (item.version !== version) throw Error("version_conflict");
+  let rightsEvidencePresent = false;
+  let imageRightsPresent = false;
+  if (action === "approve") {
+    const evidence = await db.prepare(`SELECT
+      EXISTS (SELECT 1 FROM rights_evidence WHERE item_id=? AND length(trim(permission_reference))>0 AND length(trim(permission_scope))>0) AS source_rights,
+      EXISTS (SELECT 1 FROM rights_evidence WHERE item_id=? AND length(trim(permission_reference))>0 AND lower(permission_scope) LIKE '%image%') AS image_rights`).bind(id,id).first();
+    rightsEvidencePresent = evidence?.source_rights === 1;
+    imageRightsPresent = evidence?.image_rights === 1;
+    if (!rightsEvidencePresent) throw Error("rights_evidence_missing");
+  }
   const result = evaluateReviewAction({
     ...item, source_verified:item.source_verified === 1,
     rights_checked:item.rights_checked === 1,
     retracted:item.retracted === 1,
-    // Images are not yet enabled; fail closed until image-rights evidence is integrated.
-    image_rights_checked:false
+    image_rights_checked:imageRightsPresent
   },action,true);
   if (!result.ok) throw Error(result.error);
   const eventId = crypto.randomUUID();
   const next = result.nextStatus;
   const updates = db.prepare(`UPDATE editorial_items SET status=?,retracted=?,
-    version=version+1,updated_at=?,last_review_event_id=? WHERE id=? AND version=? AND status=?`)
-    .bind(next,result.retracted?1:0,now,eventId,id,version,item.status);
+    version=version+1,updated_at=?,last_review_event_id=? WHERE id=? AND version=? AND status=?
+    AND (? != 'approve' OR (source_verified=1 AND rights_checked=1 AND retracted=0
+      AND EXISTS (SELECT 1 FROM rights_evidence WHERE item_id=editorial_items.id AND length(trim(permission_reference))>0 AND length(trim(permission_scope))>0)
+      AND (image_key IS NULL OR EXISTS (SELECT 1 FROM rights_evidence WHERE item_id=editorial_items.id AND lower(permission_scope) LIKE '%image%' AND length(trim(permission_reference))>0))))`)
+    .bind(next,result.retracted?1:0,now,eventId,id,version,item.status,action);
   const audit = db.prepare(`INSERT INTO review_events
     (id,item_id,action,reviewer_id,reason,occurred_at)
     SELECT ?,id,?,?,?,? FROM editorial_items
