@@ -18,7 +18,7 @@ export function projectApprovedItem(item) {
 export async function readApprovedFeed(db, options={}) {
  const {limit,category,district}=normalizeFeedOptions(options);
  if (!db?.prepare) throw Error("db_required");
- const clauses=["status='approved'","retracted=0","source_verified=1","rights_checked=1"];
+ const clauses=["status='approved'","retracted=0","source_verified=1","rights_checked=1","EXISTS (SELECT 1 FROM rights_evidence e WHERE e.item_id=editorial_items.id AND length(trim(e.permission_reference))>0 AND length(trim(e.permission_scope))>0)"];
  const params=[];
  if (category!==null) {clauses.push("category=?");params.push(category);}
  if (district!==null) {clauses.push("district=?");params.push(district);}
