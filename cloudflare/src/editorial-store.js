@@ -58,9 +58,14 @@ export async function createDraft(db, draft, reviewerId) {
  */
 export async function reviewDraft(db, {id, action, version, reviewerId, reason, now}) {
   if (!reviewerId) throw Error("owner_required");
-  if (!id || !Number.isSafeInteger(version) || version < 1 ||
-      typeof now !== "string" || !now ||
-      typeof reason !== "string") throw Error("invalid_review_input");
+  if (typeof id !== "string" || !/^[a-zA-Z0-9_-]{1,100}$/.test(id) ||
+      !Number.isSafeInteger(version) || version < 1 ||
+      !new Set(["approve","reject","correct","retract"]).has(action) ||
+      typeof now !== "string" || !Number.isFinite(Date.parse(now)) ||
+      typeof reason !== "string" || reason.length > 1000 ||
+      /[\\u0000-\\u001f\\u007f]/u.test(reason) ||
+      (action === "reject" || action === "retract") && !reason.trim())
+    throw Error("invalid_review_input");
   const item = await db.prepare(`SELECT id,status,version,source_verified,
     rights_checked,retracted,image_key FROM editorial_items WHERE id=?`).bind(id).first();
   if (!item) throw Error("not_found");
