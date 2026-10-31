@@ -21,8 +21,8 @@ function sameOrigin(request) {
   catch { return false; }
 }
 async function readJson(request) {
-  if (!(request.headers.get("content-type") || "").toLowerCase()
-    .match(/^application\\/json(?:\\s*;|$)/)) throw Error("json_required");
+  if ((request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
+    throw Error("json_required");
   const length = Number(request.headers.get("content-length"));
   if (request.headers.has("content-length") &&
       (!Number.isSafeInteger(length) || length < 0 || length > 16384))
