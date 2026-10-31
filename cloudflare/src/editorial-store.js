@@ -63,13 +63,13 @@ export async function reviewDraft(db, {id, action, version, reviewerId, reason, 
   const eventId = crypto.randomUUID();
   const next = result.nextStatus;
   const updates = db.prepare(`UPDATE editorial_items SET status=?,retracted=?,
-    version=version+1,updated_at=? WHERE id=? AND version=? AND status=?`)
-    .bind(next,result.retracted?1:0,now,id,version,item.status);
+    version=version+1,updated_at=?,last_review_event_id=? WHERE id=? AND version=? AND status=?`)
+    .bind(next,result.retracted?1:0,now,eventId,id,version,item.status);
   const audit = db.prepare(`INSERT INTO review_events
     (id,item_id,action,reviewer_id,reason,occurred_at)
     SELECT ?,id,?,?,?,? FROM editorial_items
-    WHERE id=? AND version=? AND status=?`)
-    .bind(eventId,action,reviewerId,reason,now,id,version+1,next);
+    WHERE id=? AND version=? AND status=? AND last_review_event_id=?`)
+    .bind(eventId,action,reviewerId,reason,now,id,version+1,next,eventId);
   // Audit SELECT only inserts when the guarded update actually changed the item.
   // D1 batch executes statements in order; inspect both row counts before success.
   const responses = await db.batch([updates,audit]);
