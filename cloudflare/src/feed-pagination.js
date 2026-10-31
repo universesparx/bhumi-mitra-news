@@ -1,7 +1,7 @@
-import {normalizeFeedOptions} from "./approved-feed-store.js";
+import {normalizeFeedOptions,projectApprovedItem} from "./approved-feed-store.js";
 
 const MAX_PAGE_SIZE=50;
-const SELECT_COLUMNS="id,headline_hi,summary_hi,source_name,source_url,source_publication_date,category,district,updated_at";
+const SELECT_COLUMNS="id,headline_hi,summary_hi,source_name,source_url,source_publication_date,category,district,updated_at,status,retracted,source_verified,rights_checked";
 export function validateCursor(cursor) {
  if(cursor===null||cursor===undefined)return null;
  if(typeof cursor!=="string"||cursor.length>250||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}\|[A-Za-z0-9_-]{1,100}$/.test(cursor))
@@ -27,9 +27,8 @@ export async function readApprovedPage(db,{limit=20,category=null,district=null,
  const result=await db.prepare(sql).bind(...args,Math.min(opts.limit+1,MAX_PAGE_SIZE+1)).all();
  const rows=(result.results||[]).slice(0,opts.limit+1);
  const hasMore=rows.length>opts.limit;
- const items=rows.slice(0,opts.limit).map(row=>Object.fromEntries(
-  SELECT_COLUMNS.split(",").map(key=>[key,row[key]])));
- const last=items.at(-1);
+ const items=rows.slice(0,opts.limit).map(projectApprovedItem).filter(Boolean);
+ const last=rows.slice(0,opts.limit).at(-1);
  return {items,next_cursor:hasMore&&last?
   last.source_publication_date+"|"+last.id:null};
 }
