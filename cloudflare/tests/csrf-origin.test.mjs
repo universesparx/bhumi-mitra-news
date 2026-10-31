@@ -34,5 +34,5 @@ for(const [name,origin,site,overrides] of [
 test("valid same-origin request passes CSRF boundary into payload validation",async()=>{
  const r=await handleEditorial(req("https://editor.example.org","same-origin"),env,verifier);
  assert.equal(r.status,400);
- assert.deepEqual(await r.json(),{error:"invalid_or_unavailable"});
+ assert.deepEqual(await r.json(),{error:"invalid_request"});
 });
