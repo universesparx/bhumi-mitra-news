@@ -86,6 +86,36 @@ UPDATE editorial_items SET image_key='editorial/local-b/duplicate.png',
  version=version+1 WHERE id='local-b' AND status='pending' AND image_key IS NULL;
 SELECT 'ASSERT_IMAGE_NO_OVERWRITE' AS marker,image_key,version
  FROM editorial_items WHERE id='local-b';
+INSERT INTO editorial_items(id,headline_hi,summary_hi,source_name,source_url,
+ source_publication_date,category,created_at,updated_at,source_verified,rights_checked)
+ VALUES ('guarded-c','Guarded','Summary','Synthetic','https://example.org/guarded-c',
+ '2026-10-31','survey','now','now',1,1);
+INSERT INTO rights_evidence(id,item_id,permission_reference,permission_scope,reviewed_at)
+ VALUES ('rights-c','guarded-c','synthetic-test','article','now');
+UPDATE editorial_items SET image_key='editorial/guarded-c/fixture.png'
+ WHERE id='guarded-c';
+UPDATE editorial_items SET status='approved',version=version+1
+ WHERE id='guarded-c' AND version=1 AND status='pending'
+ AND source_verified=1 AND rights_checked=1 AND retracted=0
+ AND EXISTS(SELECT 1 FROM rights_evidence WHERE item_id=editorial_items.id
+ AND length(trim(permission_reference))>0 AND length(trim(permission_scope))>0)
+ AND (image_key IS NULL OR EXISTS(SELECT 1 FROM rights_evidence
+ WHERE item_id=editorial_items.id AND lower(trim(permission_scope)) IN ('image','image_reuse')
+ AND length(trim(permission_reference))>0));
+SELECT 'ASSERT_IMAGE_APPROVAL_BLOCKED' AS marker,status,version
+ FROM editorial_items WHERE id='guarded-c';
+INSERT INTO rights_evidence(id,item_id,permission_reference,permission_scope,reviewed_at)
+ VALUES ('image-rights-c','guarded-c','synthetic-image-rights','image','now');
+UPDATE editorial_items SET status='approved',version=version+1
+ WHERE id='guarded-c' AND version=1 AND status='pending'
+ AND source_verified=1 AND rights_checked=1 AND retracted=0
+ AND EXISTS(SELECT 1 FROM rights_evidence WHERE item_id=editorial_items.id
+ AND length(trim(permission_reference))>0 AND length(trim(permission_scope))>0)
+ AND (image_key IS NULL OR EXISTS(SELECT 1 FROM rights_evidence
+ WHERE item_id=editorial_items.id AND lower(trim(permission_scope)) IN ('image','image_reuse')
+ AND length(trim(permission_reference))>0));
+SELECT 'ASSERT_IMAGE_APPROVAL_ALLOWED' AS marker,status,version
+ FROM editorial_items WHERE id='guarded-c';
 SELECT 'ASSERT_ITEM' AS marker,status,version,last_review_event_id
  FROM editorial_items WHERE id='local-a';
 SELECT 'ASSERT_AUDIT' AS marker,count(*) AS count FROM review_events;
@@ -118,6 +148,11 @@ try {
       imageNoOverwrite.image_key!==imageAttached.image_key||
       imageNoOverwrite.version!==4)
     throw Error("Private image attachment D1 assertions failed");
+  const blocked=rows.find(row=>row.marker==="ASSERT_IMAGE_APPROVAL_BLOCKED");
+  const allowed=rows.find(row=>row.marker==="ASSERT_IMAGE_APPROVAL_ALLOWED");
+  if(!blocked||blocked.status!=="pending"||blocked.version!==1||
+      !allowed||allowed.status!=="approved"||allowed.version!==2)
+    throw Error("Image-specific approval guard D1 assertions failed");
   const item=rows.find(row=>row.marker==="ASSERT_ITEM");
   const audit=rows.find(row=>row.marker==="ASSERT_AUDIT");
   const second=rows.find(row=>row.marker==="ASSERT_SECOND_ITEM");
