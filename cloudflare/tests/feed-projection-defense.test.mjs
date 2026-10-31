@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {readApprovedPage} from "../src/feed-pagination.js";
+import {readApprovedPage,validateCursor} from "../src/feed-pagination.js";
 const good={id:"safe",headline_hi:"Title",summary_hi:"Summary",source_name:"Official",
  source_url:"https://example.org",source_publication_date:"2026-10-31",
  category:"policy",district:"Gaya",updated_at:"now",status:"approved",
@@ -19,4 +19,10 @@ test("pagination refuses unapproved and retracted rows even if DB layer misbehav
  const db={prepare(){return {bind(){return {async all(){return {results:rows};}};}};}};
  const page=await readApprovedPage(db);
  assert.deepEqual(page.items.map(item=>item.id),["valid"]);
+});
+
+test("pagination rejects impossible calendar dates",()=>{
+ for(const date of ["2026-02-30","2026-13-01","2025-02-29","2026-00-10"])
+  assert.throws(()=>validateCursor(date+"|abc"),/invalid_cursor/);
+ assert.equal(validateCursor("2024-02-29|abc"),"2024-02-29|abc");
 });
