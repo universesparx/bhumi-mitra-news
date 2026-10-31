@@ -1,0 +1,18 @@
+{
+  // Local-only D1 fixture. Never use this config for deployment or remote commands.
+  "name": "bhumi-mitra-news-local-test",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-31",
+  "workers_dev": false,
+  "vars": {
+    "NEWS_PUBLISHING_ENABLED": "false",
+    "NEWS_COLLECTION_ENABLED": "false",
+    "AUTH_ENABLED": "false"
+  },
+  "d1_databases": [{
+    "binding": "NEWS_DB",
+    "database_name": "bhumi-mitra-news-local-fixture",
+    "database_id": "00000000-0000-4000-8000-000000000001",
+    "migrations_dir": "migrations"
+  }]
+}
