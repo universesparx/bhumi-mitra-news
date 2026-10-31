@@ -173,9 +173,10 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
   } catch (error) {
     const conflict = ["version_conflict","review_conflict"].includes(error.message);
     const missing = error.message === "not_found";
-    const duplicate = /UNIQUE constraint/i.test(error.message);
+    const duplicate = /UNIQUE constraint/i.test(error?.message||"");
+    const validation = /^(invalid_|status_must_be_pending|approval_requirements_missing|image_rights_unconfirmed|rights_evidence_missing|invalid_transition|owner_required)/.test(error?.message||"");
     return json({error: conflict || duplicate ? "conflict" :
-      missing ? "not_found" : "invalid_or_unavailable"},
-      conflict || duplicate ? 409 : missing ? 404 : 400);
+      missing ? "not_found" : validation ? "invalid_request" : "database_unavailable"},
+      conflict || duplicate ? 409 : missing ? 404 : validation ? 400 : 503);
   }
 }
