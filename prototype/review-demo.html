@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>भू-अलर्ट बिहार — स्थानीय समीक्षा डेमो</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#18342a;background:#f5f8f6}*{box-sizing:border-box}
+main{max-width:850px;margin:auto;padding:18px}h1{font-size:1.7rem;margin-bottom:4px}
+.note{background:#fff4d6;padding:12px;border-radius:10px;border-left:4px solid #c48b12}
+.card{background:white;padding:16px;margin:14px 0;border:1px solid #dce6df;border-radius:14px}
+.meta{color:#576c61;font-size:.9rem}button{border:0;border-radius:8px;padding:10px 14px;margin:5px 4px 5px 0;cursor:pointer}
+.approve{background:#136b43;color:white}.reject{background:#fce7e7;color:#9b2323}.reset{background:#e6eeea}
+.pill{display:inline-block;padding:4px 9px;border-radius:30px;background:#e9f0ec;font-size:.8rem}
+.hidden{display:none}a{color:#0d6744}#counts{font-weight:600}
+</style></head><body><main>
+<h1>भू-अलर्ट बिहार</h1><p class="meta">समाचार समीक्षा • ऑफलाइन प्रदर्शन</p>
+<p class="note" role="status">यह केवल काल्पनिक डेटा वाला डेमो है। किसी सरकारी वेबसाइट से जानकारी नहीं ली जाती। स्वीकृति केवल इस पेज के भीतर रहती है; कुछ भी प्रकाशित या सेव नहीं होता।</p>
+<div class="card"><h2>समीक्षा सूची</h2><p id="counts" aria-live="polite"></p><div id="items"></div><button class="reset" id="reset">डेमो रीसेट करें</button></div>
+<div class="card"><h2>स्वीकृत समाचार का पूर्वावलोकन</h2><div id="approved" aria-live="polite">अभी कोई स्वीकृत समाचार नहीं।</div></div>
+<p class="meta">प्रोडक्शन उपयोग के लिए लॉगिन, सुरक्षित स्टोरेज, स्रोत-अनुमति जाँच और प्रकाशन नियंत्रण अलग से आवश्यक हैं।</p>
+</main><script>
+"use strict";
+const samples=[
+{id:"demo-1",title:"काल्पनिक: भूमि सर्वेक्षण सूचना का उदाहरण",summary:"यह परीक्षण हेतु बनाई गई सूचना है, वास्तविक सरकारी आदेश नहीं।",source:"काल्पनिक स्रोत",date:"2026-01-01",url:"https://example.org/demo-survey",district:"उदाहरण जिला"},
+{id:"demo-2",title:"काल्पनिक: परिमार्जन सेवा संबंधी सूचना",summary:"केवल UI परीक्षण के लिए। इस सूचना को वास्तविक न मानें।",source:"काल्पनिक स्रोत",date:"2026-01-02",url:"https://example.org/demo-service",district:"उदाहरण जिला"}];
+let decisions={};
+const $=id=>document.getElementById(id);
+function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n}
+function render(){
+$("items").replaceChildren();$("approved").replaceChildren();
+let accepted=0,rejected=0;
+for(const item of samples){
+const status=decisions[item.id]||"pending";if(status==="approved")accepted++;if(status==="rejected")rejected++;
+const card=el("article",undefined,"card");card.append(el("span",status==="pending"?"समीक्षा लंबित":status==="approved"?"स्वीकृत":"अस्वीकृत","pill"),el("h3",item.title),el("p",item.summary),el("p",item.source+" • "+item.date+" • "+item.district,"meta"));
+const link=el("a","स्रोत का उदाहरण लिंक");link.href=item.url;link.target="_blank";link.rel="noopener noreferrer";card.append(link);
+if(status==="pending"){for(const [choice,label,cls] of [["approved","स्वीकृत करें","approve"],["rejected","अस्वीकृत करें","reject"]]){const b=el("button",label,cls);b.type="button";b.addEventListener("click",()=>{decisions[item.id]=choice;render()});card.append(b)}}
+$("items").append(card);
+if(status==="approved"){$("approved").append(el("p",item.title+" — "+item.source))}
+}
+if(!accepted)$("approved").append(el("p","अभी कोई स्वीकृत समाचार नहीं।"));
+$("counts").textContent="लंबित: "+(samples.length-accepted-rejected)+" | स्वीकृत: "+accepted+" | अस्वीकृत: "+rejected;
+}
+$("reset").addEventListener("click",()=>{decisions={};render()});render();
+</script></body></html>
