@@ -1,3 +1,4 @@
+import {listReviewHistory} from "./review-history.js";
 import {listEditorialDrafts} from "./editorial-list.js";
 import {requireOwner} from "./auth.js";
 import {verifyAccessJwt} from "./verify-access-jwt.js";
@@ -12,6 +13,7 @@ function json(body, status) {
 const route = (path, method) => {
   if (path === "/api/editorial/session" && method === "GET") return "session";
   if (path === "/api/editorial/drafts" && method === "GET") return "list";
+  if (path === "/api/editorial/history" && method === "GET") return "history";
   if (path === "/api/editorial/drafts" && method === "POST") return "create";
   if (path === "/api/editorial/review" && method === "POST") return "review";
   return null;
@@ -81,6 +83,21 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
     return json({authenticated:true,role:"owner",publishing_enabled:false,
       writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&
       typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB)},200);
+  if (action === "history") {
+    if (!env.NEWS_DB) return json({error:"database_unavailable"},503);
+    const url=new URL(request.url);
+    if ([...url.searchParams.keys()].some(key=>!["item_id","limit"].includes(key)) ||
+        ["item_id","limit"].some(key=>url.searchParams.getAll(key).length>1))
+      return json({error:"invalid_query"},400);
+    const rawLimit=url.searchParams.get("limit");
+    if (rawLimit!==null&&!/^[1-9][0-9]*$/.test(rawLimit))
+      return json({error:"invalid_query"},400);
+    try {
+      const events=await listReviewHistory(env.NEWS_DB,{
+        itemId:url.searchParams.get("item_id"),limit:rawLimit===null?30:Number(rawLimit)});
+      return json({events},200);
+    }catch{return json({error:"invalid_or_unavailable"},400);}
+  }
   if (action === "list") {
     if (!env.NEWS_DB) return json({error:"database_unavailable"},503);
     const url = new URL(request.url);
