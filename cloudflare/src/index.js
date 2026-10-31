@@ -1,5 +1,7 @@
 import {readApprovedFeed} from "./approved-feed-store.js";
 import {readApprovedPage} from "./feed-pagination.js";
+import {normalizeFeedOptions} from "./approved-feed-store.js";
+import {validateCursor} from "./feed-pagination.js";
 import {handleEditorial} from "./editorial-api.js";
 
 // Non-deployed scaffold. Authenticated session check only; no publishing or writes.
@@ -19,18 +21,19 @@ export default {
       try {
         const rawLimit=url.searchParams.get("limit");
         if(rawLimit!==null&&!/^[1-9][0-9]*$/.test(rawLimit))throw Error("invalid_limit");
-        const items=await (paginated?readApprovedPage:readApprovedFeed)(env.NEWS_DB,{
-          limit:rawLimit===null?20:Number(rawLimit),
+        const options={limit:rawLimit===null?20:Number(rawLimit),
           category:url.searchParams.get("category"),
-          district:url.searchParams.get("district"),
-          ...(paginated?{cursor:url.searchParams.get("cursor")}: {})
-        });
+          district:url.searchParams.get("district")};
+        normalizeFeedOptions(options);
+        if(paginated){options.cursor=url.searchParams.get("cursor");validateCursor(options.cursor);}
+        const items=await (paginated?readApprovedPage:readApprovedFeed)(env.NEWS_DB,options);
         return new Response(JSON.stringify(items),{status:200,
           headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"public, max-age=60","x-content-type-options":"nosniff"}});
       } catch {
-        return new Response(JSON.stringify({error:"invalid_or_unavailable"}),{
-          status:400,headers:{"cache-control":"no-store"}});
+        return new Response(JSON.stringify({error:"database_unavailable"}),{
+          status:503,headers:{"content-type":"application/json; charset=utf-8",
+            "cache-control":"no-store","x-content-type-options":"nosniff"}});
       }
     }
     if (url.pathname.startsWith("/api/editorial/")) {
