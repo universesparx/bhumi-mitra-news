@@ -6,6 +6,11 @@ export function validateCursor(cursor) {
  if(cursor===null||cursor===undefined)return null;
  if(typeof cursor!=="string"||cursor.length>250||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}\|[A-Za-z0-9_-]{1,100}$/.test(cursor))
   throw Error("invalid_cursor");
+ const [date]=cursor.split("|");
+ const [year,month,day]=date.split("-").map(Number);
+ const actual=new Date(Date.UTC(year,month-1,day));
+ if(actual.getUTCFullYear()!==year||actual.getUTCMonth()!==month-1||actual.getUTCDate()!==day)
+  throw Error("invalid_cursor");
  return cursor;
 }
 export async function readApprovedPage(db,{limit=20,category=null,district=null,cursor=null}={}) {
