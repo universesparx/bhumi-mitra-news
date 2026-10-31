@@ -37,3 +37,10 @@ test("missing storage and malformed item IDs fail closed",async()=>{
  const f=fixture();
  await assert.rejects(storeEditorialImage({...args,itemId:"../bad",...f,request:req()}),/invalid_item_id/);
 });
+
+test("both evidence lookup and conditional attachment require image-specific scope",async()=>{
+ const f=fixture();await storeEditorialImage({...args,...f,request:req()});
+ const queries=f.calls.filter(x=>x[0]==="sql").map(x=>x[1]);
+ assert.equal(queries.length,2);
+ for(const sql of queries)assert.match(sql,/lower\((?:e\.)?permission_scope\) LIKE '%image%'/);
+});
