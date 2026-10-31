@@ -1,3 +1,4 @@
+import {storeEditorialImage} from "./editorial-image-store.js";
 import {listReviewHistory} from "./review-history.js";
 import {listEditorialDrafts} from "./editorial-list.js";
 import {requireOwner} from "./auth.js";
@@ -16,6 +17,7 @@ const route = (path, method) => {
   if (path === "/api/editorial/history" && method === "GET") return "history";
   if (path === "/api/editorial/drafts" && method === "POST") return "create";
   if (path === "/api/editorial/review" && method === "POST") return "review";
+  if (path === "/api/editorial/image" && method === "POST") return "image";
   return null;
 };
 function sameOrigin(request, env) {
@@ -117,6 +119,23 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
   if (env.EDITORIAL_WRITES_ENABLED !== "true" || !env.NEWS_DB)
     return json({error:"editorial_writes_disabled"},503);
   if (!sameOrigin(request, env)) return json({error:"origin_denied"},403);
+  if (action === "image") {
+    if (env.EDITORIAL_IMAGE_WRITES_ENABLED !== "true" || !env.NEWS_IMAGES)
+      return json({error:"image_writes_disabled"},503);
+    const itemId=request.headers.get("X-Editorial-Item-Id");
+    const evidenceId=request.headers.get("X-Rights-Evidence-Id");
+    try {
+      const result=await storeEditorialImage({db:env.NEWS_DB,bucket:env.NEWS_IMAGES,
+        request,itemId,evidenceId,ownerId:access.subject});
+      return json(result,201);
+    }catch(error){
+      const conflict=error.message==="image_attachment_conflict";
+      const unavailable=["storage_unavailable","image_cleanup_failed"].includes(error.message);
+      const denied=["rights_evidence_missing","owner_required"].includes(error.message);
+      return json({error:unavailable?"storage_unavailable":conflict?"conflict":denied?"rights_not_verified":"invalid_image"},
+        unavailable?503:conflict?409:denied?403:400);
+    }
+  }
   let body;
   try { body = await readJson(request); }
   catch { return json({error:"invalid_request"},400); }
