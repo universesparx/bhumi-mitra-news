@@ -37,8 +37,31 @@ async function readJson(request) {
   if (request.headers.has("content-length") &&
       (!Number.isSafeInteger(length) || length < 0 || length > 16384))
     throw Error("body_too_large");
-  const raw = await request.text();
-  if (new TextEncoder().encode(raw).length > 16384) throw Error("body_too_large");
+  if (!request.body) throw Error("invalid_json");
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 16384) {
+        await reader.cancel();
+        throw Error("body_too_large");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const raw = new TextDecoder("utf-8", {fatal:true}).decode(bytes);
   const value = JSON.parse(raw);
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw Error("invalid_json");
