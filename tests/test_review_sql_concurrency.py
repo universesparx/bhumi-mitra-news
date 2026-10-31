@@ -28,6 +28,7 @@ class ReviewConcurrencySQLTests(unittest.TestCase):
            source_verified,rights_checked)
           VALUES ('a','शीर्षक','विवरण','source','https://example.org/a',
                   '2026-10-30','circular','now','now',1,1)""")
+        self.db.commit()
 
     def tearDown(self):
         self.db.close()
