@@ -6,7 +6,7 @@ const row=id=>({id,headline_hi:id,summary_hi:"s",source_name:"Source",
  category:"survey",district:"Gaya",updated_at:"now",status:"approved",retracted:0,source_verified:1,rights_checked:1});
 test("invalid cursors rejected",()=>{
  for(const x of ["","abc","2026-10-31|x;DROP TABLE","2026-10-31|",
-  "2026-10-31|a".repeat(200),123])
+  "2026-10-31|a".repeat(200),"2026-02-30|x","2025-02-29|x",123])
   assert.throws(()=>validateCursor(x));
 });
 test("pagination uses bound cursor values and returns next cursor",async()=>{
@@ -30,4 +30,21 @@ test("no next cursor on last page",async()=>{
 });
 test("missing database rejected",async()=>{
  await assert.rejects(readApprovedPage(null),/db_required/);
+});
+
+test("cursor boundary uses publication date and id, never updated_at",async()=>{
+ let query;
+ const db={prepare(sql){query=sql;return {bind(){return {all:async()=>({results:[row("b"),row("a")]})};}};}};
+ const result=await readApprovedPage(db,{limit:1,cursor:"2026-10-30|z"});
+ assert.equal(result.next_cursor,"2026-10-31|b");
+ assert.match(query,/source_publication_date < \?/);
+ assert.match(query,/source_publication_date = \? AND id < \?/);
+ assert.match(query,/ORDER BY source_publication_date DESC,id DESC/);
+});
+test("pagination filters out unapproved projections even if mock DB returns them",async()=>{
+ const pending={...row("p"),status:"pending"};
+ const db={prepare(){return {bind(){return {all:async()=>({results:[pending,row("a")]})};}};}};
+ const result=await readApprovedPage(db,{limit:2});
+ assert.deepEqual(result.items.map(x=>x.id),["a"]);
+ assert.equal(result.next_cursor,null);
 });
