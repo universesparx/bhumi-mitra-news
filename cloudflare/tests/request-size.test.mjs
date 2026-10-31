@@ -36,5 +36,5 @@ test("incorrect content-length is rejected",async()=>{
 test("small valid JSON reaches draft validation",async()=>{
  const r=await handleEditorial(request("{}"),env,verifier);
  assert.equal(r.status,400);
- assert.deepEqual(await r.json(),{error:"invalid_or_unavailable"});
+ assert.deepEqual(await r.json(),{error:"invalid_request"});
 });
