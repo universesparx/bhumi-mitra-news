@@ -67,10 +67,11 @@ export async function reviewDraft(db, {id, action, version, reviewerId, reason, 
     .bind(next,result.retracted?1:0,now,id,version,item.status);
   const audit = db.prepare(`INSERT INTO review_events
     (id,item_id,action,reviewer_id,reason,occurred_at)
-    SELECT ?,id,?,?,? ,? FROM editorial_items
+    SELECT ?,id,?,?,?,? FROM editorial_items
     WHERE id=? AND version=? AND status=?`)
     .bind(eventId,action,reviewerId,reason,now,id,version+1,next);
-  // D1 batch is transactional; a concurrent update may affect zero rows.
+  // Audit SELECT only inserts when the guarded update actually changed the item.
+  // D1 batch executes statements in order; inspect both row counts before success.
   const responses = await db.batch([updates,audit]);
   if (responses[0]?.meta?.changes !== 1 || responses[1]?.meta?.changes !== 1)
     throw Error("review_conflict");
