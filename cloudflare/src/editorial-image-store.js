@@ -14,8 +14,10 @@ export async function storeEditorialImage({db,bucket,request,itemId,evidenceId,o
  if(!evidence)throw Error("rights_evidence_missing");
  const upload=await validateImageUpload(request,{rightsEvidenceId:evidenceId,rightsConfirmed:true});
  const key="editorial/"+itemId+"/"+crypto.randomUUID()+upload.extension;
- await bucket.put(key,upload.bytes,{httpMetadata:{contentType:upload.mime},
-  customMetadata:{evidenceId,uploadedBy:ownerId}});
+ try {
+  await bucket.put(key,upload.bytes,{httpMetadata:{contentType:upload.mime},
+   customMetadata:{evidenceId,uploadedBy:ownerId}});
+ }catch{throw Error("image_storage_failed");}
  try {
   const result=await db.prepare(
    "UPDATE editorial_items SET image_key=?,version=version+1,updated_at=? WHERE id=? AND status='pending' AND image_key IS NULL AND EXISTS (SELECT 1 FROM rights_evidence WHERE id=? AND item_id=? AND lower(permission_scope) LIKE '%image%')"
