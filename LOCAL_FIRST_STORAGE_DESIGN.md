@@ -1,6 +1,6 @@
 # भू-अलर्ट बिहार — Local-first editorial storage design
 
-**Status:** Proposed design, not deployed. The owner has authorized continued prototype work, but no production encryption, publishing, hosting, or Bhumi Mitra integration is authorized by this document.
+**Status:** Superseded for cross-device access by `CROSS_DEVICE_EDITORIAL_DESIGN.md`. Proposed design, not deployed. The owner has authorized continued prototype work, but no production encryption, publishing, hosting, or Bhumi Mitra integration is authorized by this document.
 
 ## Scope
 
