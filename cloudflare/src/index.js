@@ -11,15 +11,15 @@ export default {
     if (request.method === "GET" && (url.pathname === "/api/news" || url.pathname === "/api/news/page")) {
       if (env.NEWS_PUBLISHING_ENABLED !== "true" || !env.NEWS_DB)
         return new Response(JSON.stringify({error:"not_available"}),{
-          status:503,headers:{"content-type":"application/json; charset=utf-8",
+          status:invalid?400:503,headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"no-store","x-content-type-options":"nosniff"}});
       const paginated=url.pathname === "/api/news/page";
       const allowed=new Set(paginated?["limit","category","district","cursor"]:["limit","category","district"]);
       if ([...url.searchParams.keys()].some(key=>!allowed.has(key)) ||
           [...allowed].some(key=>url.searchParams.getAll(key).length>1))
         return new Response(JSON.stringify({error:"invalid_query"}),{status:400});
+      const rawLimit=url.searchParams.get("limit");
       try {
-        const rawLimit=url.searchParams.get("limit");
         if(rawLimit!==null&&!/^[1-9][0-9]*$/.test(rawLimit))throw Error("invalid_limit");
         const options={limit:rawLimit===null?20:Number(rawLimit),
           category:url.searchParams.get("category"),
@@ -30,8 +30,9 @@ export default {
         return new Response(JSON.stringify(items),{status:200,
           headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"public, max-age=60","x-content-type-options":"nosniff"}});
-      } catch {
-        return new Response(JSON.stringify({error:"database_unavailable"}),{
+      } catch (error) {
+        const invalid = ["invalid_limit","invalid_category","invalid_district","invalid_cursor"].includes(error?.message);
+        return new Response(JSON.stringify({error:invalid?"invalid_query":"database_unavailable"}),{
           status:503,headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"no-store","x-content-type-options":"nosniff"}});
       }
