@@ -4,12 +4,14 @@ on:
   push:
     paths:
       - "news_review.py"
+      - "source_gate.py"
       - "tests/**"
       - "source_registry.json"
       - ".github/workflows/offline-tests.yml"
   pull_request:
     paths:
       - "news_review.py"
+      - "source_gate.py"
       - "tests/**"
       - "source_registry.json"
       - ".github/workflows/offline-tests.yml"
