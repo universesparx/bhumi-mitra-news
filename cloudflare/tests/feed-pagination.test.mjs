@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {readApprovedPage,validateCursor} from "../src/feed-pagination.js";
 const row=id=>({id,headline_hi:id,summary_hi:"s",source_name:"Source",
  source_url:"https://example.org/"+id,source_publication_date:"2026-10-31",
- category:"survey",district:"Gaya",updated_at:"now"});
+ category:"survey",district:"Gaya",updated_at:"now",status:"approved",retracted:0,source_verified:1,rights_checked:1});
 test("invalid cursors rejected",()=>{
  for(const x of ["","abc","2026-10-31|x;DROP TABLE","2026-10-31|",
   "2026-10-31|a".repeat(200),123])
