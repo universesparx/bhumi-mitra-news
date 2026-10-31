@@ -1,26 +1,29 @@
 import {readApprovedFeed} from "./approved-feed-store.js";
+import {readApprovedPage} from "./feed-pagination.js";
 import {handleEditorial} from "./editorial-api.js";
 
 // Non-deployed scaffold. Authenticated session check only; no publishing or writes.
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/api/news") {
+    if (request.method === "GET" && (url.pathname === "/api/news" || url.pathname === "/api/news/page")) {
       if (env.NEWS_PUBLISHING_ENABLED !== "true" || !env.NEWS_DB)
         return new Response(JSON.stringify({error:"not_available"}),{
           status:503,headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"no-store","x-content-type-options":"nosniff"}});
-      const allowed=new Set(["limit","category","district"]);
+      const paginated=url.pathname === "/api/news/page";
+      const allowed=new Set(paginated?["limit","category","district","cursor"]:["limit","category","district"]);
       if ([...url.searchParams.keys()].some(key=>!allowed.has(key)) ||
           [...allowed].some(key=>url.searchParams.getAll(key).length>1))
         return new Response(JSON.stringify({error:"invalid_query"}),{status:400});
       try {
         const rawLimit=url.searchParams.get("limit");
         if(rawLimit!==null&&!/^[1-9][0-9]*$/.test(rawLimit))throw Error("invalid_limit");
-        const items=await readApprovedFeed(env.NEWS_DB,{
+        const items=await (paginated?readApprovedPage:readApprovedFeed)(env.NEWS_DB,{
           limit:rawLimit===null?20:Number(rawLimit),
           category:url.searchParams.get("category"),
-          district:url.searchParams.get("district")
+          district:url.searchParams.get("district"),
+          ...(paginated?{cursor:url.searchParams.get("cursor")}: {})
         });
         return new Response(JSON.stringify(items),{status:200,
           headers:{"content-type":"application/json; charset=utf-8",
