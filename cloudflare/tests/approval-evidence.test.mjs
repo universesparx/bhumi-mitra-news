@@ -4,7 +4,7 @@ import {reviewDraft} from "../src/editorial-store.js";
 const item={id:"a",status:"pending",version:1,source_verified:1,rights_checked:1,retracted:0,image_key:null};
 function database({sourceRights=1,imageRights=0,imageKey=null}={}){
  const batches=[];
- const db={prepare(sql){return {bind(){return {first:async()=>sql.includes("AS source_rights")?{source_rights:sourceRights,image_rights:imageRights}:{...item,image_key:imageKey}};}};},
+ const db={prepare(sql){return {bind(){return {sql,first:async()=>sql.includes("AS source_rights")?{source_rights:sourceRights,image_rights:imageRights}:{...item,image_key:imageKey}};}};},
  async batch(statements){batches.push(statements);return [{meta:{changes:1}},{meta:{changes:1}}];}};
  return {db,batches};
 }
