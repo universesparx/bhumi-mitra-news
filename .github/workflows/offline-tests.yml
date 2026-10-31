@@ -1,5 +1,6 @@
 name: Offline prototype tests
 on:
+  workflow_dispatch:
   push:
     paths:
       - "news_review.py"
