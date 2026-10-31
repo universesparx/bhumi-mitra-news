@@ -1,0 +1,6 @@
+# Local editorial records are never committed to the public repository.
+local_queue.json
+*.local.json
+__pycache__/
+*.pyc
+.venv/
