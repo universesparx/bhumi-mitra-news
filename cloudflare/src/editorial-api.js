@@ -54,7 +54,8 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
   if (!access.ok) return json({error:access.error},access.status);
   if (action === "session")
     return json({authenticated:true,role:"owner",publishing_enabled:false,
-      writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&\n      typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB)},200);
+      writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&
+      typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB)},200);
   if (env.EDITORIAL_WRITES_ENABLED !== "true" || !env.NEWS_DB)
     return json({error:"editorial_writes_disabled"},503);
   if (!sameOrigin(request, env)) return json({error:"origin_denied"},403);
