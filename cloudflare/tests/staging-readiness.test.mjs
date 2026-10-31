@@ -30,3 +30,14 @@ test("missing owner configuration and disabled authentication fail",()=>{
  assert.equal(inspectStagingConfig({...safe,OWNER_SUB:""}).ready,false);
  assert.equal(inspectStagingConfig({...safe,AUTH_ENABLED:"false"}).ready,false);
 });
+
+test("Workers and D1 staging can be ready without R2 if image writes remain disabled",()=>{
+ const result=inspectStagingConfig({...safe,NEWS_IMAGES:null},{requireImages:false});
+ assert.deepEqual(result,{ready:true,failures:[]});
+});
+test("optional-R2 mode still blocks image-write activation",()=>{
+ const result=inspectStagingConfig({...safe,NEWS_IMAGES:null,
+  EDITORIAL_IMAGE_WRITES_ENABLED:"true"},{requireImages:false});
+ assert.equal(result.ready,false);
+ assert.ok(result.failures.includes("image_writes_must_be_disabled"));
+});
