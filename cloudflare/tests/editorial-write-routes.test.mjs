@@ -23,7 +23,7 @@ test("review writes disabled by default",async()=>{
 });
 test("cross-origin writes rejected when explicitly enabled",async()=>{
   const r=await handleEditorial(request("/api/editorial/drafts",draft,
-    "https://attacker.example"),{...env,EDITORIAL_WRITES_ENABLED:"true",NEWS_DB:{}},verifier);
+    "https://attacker.example"),{...env,EDITORIAL_WRITES_ENABLED:"true",EDITORIAL_ORIGIN:"https://example.org",NEWS_DB:{}},verifier);
   assert.equal(r.status,403);
 });
 test("unverified owner cannot write",async()=>{
