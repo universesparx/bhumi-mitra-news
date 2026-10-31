@@ -130,7 +130,7 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
       return json(result,201);
     }catch(error){
       const conflict=error.message==="image_attachment_conflict";
-      const unavailable=["storage_unavailable","image_cleanup_failed"].includes(error.message);
+      const unavailable=["storage_unavailable","image_cleanup_failed","image_storage_failed"].includes(error.message);
       const denied=["rights_evidence_missing","owner_required"].includes(error.message);
       return json({error:unavailable?"storage_unavailable":conflict?"conflict":denied?"rights_not_verified":"invalid_image"},
         unavailable?503:conflict?409:denied?403:400);
