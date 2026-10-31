@@ -11,7 +11,7 @@ export default {
     if (request.method === "GET" && (url.pathname === "/api/news" || url.pathname === "/api/news/page")) {
       if (env.NEWS_PUBLISHING_ENABLED !== "true" || !env.NEWS_DB)
         return new Response(JSON.stringify({error:"not_available"}),{
-          status:invalid?400:503,headers:{"content-type":"application/json; charset=utf-8",
+          status:503,headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"no-store","x-content-type-options":"nosniff"}});
       const paginated=url.pathname === "/api/news/page";
       const allowed=new Set(paginated?["limit","category","district","cursor"]:["limit","category","district"]);
@@ -33,7 +33,7 @@ export default {
       } catch (error) {
         const invalid = ["invalid_limit","invalid_category","invalid_district","invalid_cursor"].includes(error?.message);
         return new Response(JSON.stringify({error:invalid?"invalid_query":"database_unavailable"}),{
-          status:503,headers:{"content-type":"application/json; charset=utf-8",
+          status:invalid?400:503,headers:{"content-type":"application/json; charset=utf-8",
             "cache-control":"no-store","x-content-type-options":"nosniff"}});
       }
     }
