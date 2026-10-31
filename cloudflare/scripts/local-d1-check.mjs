@@ -58,6 +58,18 @@ SELECT 'ASSERT_SECOND_ITEM' AS marker,status,version,last_review_event_id
  FROM editorial_items WHERE id='local-b';
 SELECT 'ASSERT_SECOND_AUDIT' AS marker,count(*) AS count
  FROM review_events WHERE item_id='local-b';
+SELECT 'ASSERT_UNLICENSED_FEED' AS marker,count(*) AS count
+ FROM editorial_items WHERE status='approved' AND retracted=0
+ AND source_verified=1 AND rights_checked=1
+ AND EXISTS (SELECT 1 FROM rights_evidence e WHERE e.item_id=editorial_items.id
+ AND length(trim(e.permission_reference))>0 AND length(trim(e.permission_scope))>0);
+INSERT INTO rights_evidence (id,item_id,permission_reference,permission_scope,reviewed_at)
+ VALUES ('rights-1','local-a','synthetic-fixture','test-only','now');
+SELECT 'ASSERT_LICENSED_FEED' AS marker,count(*) AS count
+ FROM editorial_items WHERE status='approved' AND retracted=0
+ AND source_verified=1 AND rights_checked=1
+ AND EXISTS (SELECT 1 FROM rights_evidence e WHERE e.item_id=editorial_items.id
+ AND length(trim(e.permission_reference))>0 AND length(trim(e.permission_scope))>0);
 SELECT 'ASSERT_ITEM' AS marker,status,version,last_review_event_id
  FROM editorial_items WHERE id='local-a';
 SELECT 'ASSERT_AUDIT' AS marker,count(*) AS count FROM review_events;
@@ -77,6 +89,10 @@ try {
   // Wrangler CLI JSON output is structured; require both expected query results.
   const parsed=JSON.parse(output.slice(output.indexOf("[")));
   const rows=parsed.flatMap(batch=>batch.results||[]);
+  const unlicensed=rows.find(row=>row.marker==="ASSERT_UNLICENSED_FEED");
+  const licensed=rows.find(row=>row.marker==="ASSERT_LICENSED_FEED");
+  if (!unlicensed || unlicensed.count!==0 || !licensed || licensed.count!==1)
+    throw Error("Rights evidence feed assertions failed");
   const item=rows.find(row=>row.marker==="ASSERT_ITEM");
   const audit=rows.find(row=>row.marker==="ASSERT_AUDIT");
   const second=rows.find(row=>row.marker==="ASSERT_SECOND_ITEM");
