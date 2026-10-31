@@ -1,6 +1,6 @@
 import {storeEditorialImage} from "./editorial-image-store.js";
 import {listReviewHistory} from "./review-history.js";
-import {listEditorialDrafts} from "./editorial-list.js";
+import {listEditorialDrafts,validateEditorialListOptions} from "./editorial-list.js";
 import {requireOwner} from "./auth.js";
 import {verifyAccessJwt} from "./verify-access-jwt.js";
 import {createDraft, reviewDraft} from "./editorial-store.js";
@@ -94,11 +94,13 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
     const rawLimit=url.searchParams.get("limit");
     if (rawLimit!==null&&!/^[1-9][0-9]*$/.test(rawLimit))
       return json({error:"invalid_query"},400);
+    const itemId=url.searchParams.get("item_id"),limit=rawLimit===null?30:Number(rawLimit);
+    if(!itemId||!/^[A-Za-z0-9_-]{1,100}$/.test(itemId)||!Number.isSafeInteger(limit)||limit<1||limit>50)
+      return json({error:"invalid_query"},400);
     try {
-      const events=await listReviewHistory(env.NEWS_DB,{
-        itemId:url.searchParams.get("item_id"),limit:rawLimit===null?30:Number(rawLimit)});
+      const events=await listReviewHistory(env.NEWS_DB,{itemId,limit});
       return json({events},200);
-    }catch{return json({error:"invalid_or_unavailable"},400);}
+    }catch{return json({error:"database_unavailable"},503);}
   }
   if (action === "list") {
     if (!env.NEWS_DB) return json({error:"database_unavailable"},503);
@@ -109,12 +111,15 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
     const rawLimit=url.searchParams.get("limit");
     if (rawLimit!==null && !/^[1-9][0-9]*$/.test(rawLimit))
       return json({error:"invalid_query"},400);
+    let options;
+    try { options=validateEditorialListOptions({
+      status:url.searchParams.get("status") || "pending",
+      limit:rawLimit===null?30:Number(rawLimit)});
+    } catch {return json({error:"invalid_query"},400);}
     try {
-      const items=await listEditorialDrafts(env.NEWS_DB,{
-        status:url.searchParams.get("status") || "pending",
-        limit:rawLimit===null?30:Number(rawLimit)});
+      const items=await listEditorialDrafts(env.NEWS_DB,options);
       return json({items},200);
-    } catch {return json({error:"invalid_or_unavailable"},400);}
+    } catch {return json({error:"database_unavailable"},503);}
   }
   if (env.EDITORIAL_WRITES_ENABLED !== "true" || !env.NEWS_DB)
     return json({error:"editorial_writes_disabled"},503);
