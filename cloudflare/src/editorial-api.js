@@ -14,11 +14,21 @@ const route = (path, method) => {
   if (path === "/api/editorial/review" && method === "POST") return "review";
   return null;
 };
-function sameOrigin(request) {
+function sameOrigin(request, env) {
+  // An explicit trusted editorial origin is mandatory before writes can work.
+  // Do not infer trust from a spoofable Host header or a forwarded URL.
+  if (typeof env.EDITORIAL_ORIGIN !== "string") return false;
+  let trusted;
+  try {
+    trusted = new URL(env.EDITORIAL_ORIGIN);
+    if (trusted.protocol !== "https:" || trusted.username || trusted.password ||
+        trusted.search || trusted.hash || trusted.pathname !== "/") return false;
+  } catch { return false; }
   const origin = request.headers.get("Origin");
-  if (!origin) return false; // fail closed for browser-style mutation requests
-  try { return new URL(origin).origin === new URL(request.url).origin; }
-  catch { return false; }
+  if (!origin || origin === "null" || origin !== trusted.origin) return false;
+  const site = request.headers.get("Sec-Fetch-Site");
+  if (site && site !== "same-origin") return false;
+  return true;
 }
 async function readJson(request) {
   if ((request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase() !== "application/json")
@@ -44,10 +54,10 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
   if (!access.ok) return json({error:access.error},access.status);
   if (action === "session")
     return json({authenticated:true,role:"owner",publishing_enabled:false,
-      writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true"},200);
+      writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&\n      typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB)},200);
   if (env.EDITORIAL_WRITES_ENABLED !== "true" || !env.NEWS_DB)
     return json({error:"editorial_writes_disabled"},503);
-  if (!sameOrigin(request)) return json({error:"origin_denied"},403);
+  if (!sameOrigin(request, env)) return json({error:"origin_denied"},403);
   let body;
   try { body = await readJson(request); }
   catch { return json({error:"invalid_request"},400); }
