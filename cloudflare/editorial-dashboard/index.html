@@ -11,7 +11,7 @@ textarea{min-height:110px}button{font:inherit;border:0;border-radius:7px;backgro
 button:disabled{opacity:.5;cursor:not-allowed}button.secondary{background:#eef4f0;color:#176246}
 .row{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0}.row>*{flex:1}
 article{padding:1rem 0;border-bottom:1px solid #d5e3d9;overflow-wrap:anywhere}
-article h3{font-size:1rem;margin:0 0 .3rem}small{color:#516c5e}#notice{min-height:1.5rem}
+article h3{font-size:1rem;margin:0 0 .3rem}.muted{color:#516c5e}.tools{border-top:1px solid #d5e3d9;margin-top:.7rem;padding-top:.7rem}.tools input{margin-top:.4rem}small{color:#516c5e}#notice{min-height:1.5rem}
 @media(max-width:740px){main{grid-template-columns:1fr}}
 </style></head><body>
 <header><h1>भू-अलर्ट बिहार · संपादकीय कार्यक्षेत्र</h1><div>निजी संपादक · सर्वर पर सहेजे गए ड्राफ्ट</div></header>
@@ -29,7 +29,7 @@ article h3{font-size:1rem;margin:0 0 .3rem}small{color:#516c5e}#notice{min-heigh
 <p><small>प्रकाशन स्वचालित नहीं है। स्रोत की अनुमति और सत्यापन अलग से आवश्यक हैं।</small></p>
 </section><section><h2>समीक्षा सूची</h2>
 <div class="row"><select id="status" aria-label="स्थिति"><option value="pending">लंबित</option><option value="approved">स्वीकृत</option><option value="rejected">अस्वीकृत</option></select><button id="refresh" class="secondary" type="button">ताज़ा करें</button></div>
-<div id="items"></div></section></main>
+<div id="items"></div><p class="muted">अधिकतम 50 रिकॉर्ड दिखाए जाते हैं।</p></section></main>
 <script>
 "use strict";
 // Same-origin only. Cloudflare Access authenticates requests; no tokens stored in the browser.
@@ -43,6 +43,7 @@ const api=async(path,options={})=>{
  return data;
 };
 const notice=message=>{$("notice").textContent=message;};
+let canWrite=false,canUpload=false;
 async function refresh(){
  const target=$("items");target.replaceChildren(txt("p","लोड हो रहा है…"));
  try{
@@ -56,13 +57,14 @@ async function refresh(){
    const link=document.createElement("a");
    link.href=item.source_url;link.textContent="मूल स्रोत";link.target="_blank";link.rel="noopener noreferrer";
    card.append(link);
-   if(item.status==="pending"){
+   if(canWrite && ["pending","approved","rejected"].includes(item.status)){
     const actions=document.createElement("div");actions.className="row";
-    for(const [action,label] of [["approve","स्वीकृत करें"],["reject","अस्वीकार करें"]]){
+    const actionsByStatus=item.status==="pending"?[["approve","स्वीकृत करें"],["reject","अस्वीकार करें"]]:item.status==="approved"?[["retract","वापस लें"],["correct","सुधार हेतु लौटाएँ"]]:[["correct","सुधार हेतु लौटाएँ"]];
+    for(const [action,label] of actionsByStatus){
      const btn=document.createElement("button");btn.type="button";btn.textContent=label;
      btn.addEventListener("click",async()=>{
-      const reason=action==="reject"?window.prompt("अस्वीकार करने का कारण"): "";
-      if(reason===null || action==="reject"&&!reason.trim())return;
+      const reason=["reject","retract","correct"].includes(action)?window.prompt("कारण दर्ज करें"): "";
+      if(reason===null || ["reject","retract"].includes(action)&&!reason.trim())return;
       btn.disabled=true;
       try{await api("/api/editorial/review",{method:"POST",body:JSON.stringify({
        id:item.id,version:item.version,action,reason})});
@@ -71,6 +73,42 @@ async function refresh(){
      });actions.append(btn);
     }card.append(actions);
    }
+   if(canUpload && item.status==="pending" && !item.image_key){
+    const tools=document.createElement("div");tools.className="tools";
+    const caption=txt("small","चित्र के लिए सत्यापित image/image_reuse अधिकार प्रमाण ID आवश्यक है।");
+    const evidence=document.createElement("input");evidence.placeholder="अधिकार प्रमाण ID";evidence.setAttribute("aria-label","अधिकार प्रमाण ID");
+    evidence.maxLength=100;
+    const file=document.createElement("input");file.type="file";file.accept="image/png,image/jpeg,image/webp";file.setAttribute("aria-label","समाचार चित्र");
+    const upload=document.createElement("button");upload.type="button";upload.textContent="चित्र जोड़ें";
+    upload.addEventListener("click",async()=>{
+     const image=file.files?.[0],id=evidence.value.trim();
+     if(!image || image.size>2097152 || image.size===0 || !/^[A-Za-z0-9_-]{1,100}$/.test(id)){
+      notice("चित्र (2 MB तक) और मान्य अधिकार प्रमाण ID चुनें");return;
+     }
+     upload.disabled=true;
+     try{
+      const response=await fetch("/api/editorial/image",{method:"POST",credentials:"same-origin",cache:"no-store",
+       headers:{"Content-Type":image.type,"X-Editorial-Item-Id":item.id,"X-Rights-Evidence-Id":id},body:image});
+      const result=await response.json();
+      if(!response.ok)throw Error(result.error||"चित्र सहेजा नहीं गया");
+      notice("चित्र सुरक्षित किया गया");await refresh();
+     }catch(error){notice(error.message);upload.disabled=false;}
+    });
+    tools.append(caption,evidence,file,upload);card.append(tools);
+   }
+   if(item.image_key)card.append(txt("small","निजी चित्र संलग्न है"));
+   const history=document.createElement("button");history.type="button";history.className="secondary";history.textContent="समीक्षा इतिहास";
+   history.addEventListener("click",async()=>{
+    history.disabled=true;
+    try{
+     const data=await api("/api/editorial/history?item_id="+encodeURIComponent(item.id)+"&limit=30");
+     const list=document.createElement("div");list.className="tools";
+     for(const event of data.events||[])list.append(txt("p",event.action+" · "+event.occurred_at+" · "+(event.reason||"")));
+     if(!data.events?.length)list.append(txt("p","इतिहास उपलब्ध नहीं"));
+     card.append(list);
+    }catch(error){notice(error.message);history.disabled=false;}
+   });
+   card.append(history);
    target.append(card);
   }
   if(!data.items.length)target.append(txt("p","इस स्थिति में कोई समाचार नहीं।"));
@@ -85,13 +123,15 @@ $("draft").addEventListener("submit",async event=>{
   await api("/api/editorial/drafts",{method:"POST",body:JSON.stringify(body)});
   $("draft").reset();notice("ड्राफ्ट सुरक्षित किया गया");await refresh();
  }catch(error){notice(error.message);}
- finally{$("save").disabled=false;}
+ finally{$("save").disabled=!canWrite;}
 });
 $("refresh").addEventListener("click",refresh);$("status").addEventListener("change",refresh);
 (async()=>{
  try{const session=await api("/api/editorial/session");
   if(!session.authenticated)throw Error("लॉगिन आवश्यक है");
-  $("save").disabled=!session.writes_enabled;
+  canWrite=session.writes_enabled===true;
+  canUpload=session.image_writes_enabled===true;
+  $("save").disabled=!canWrite;
   if(!session.writes_enabled)notice("संपादन अभी बंद है; केवल पढ़ने की अनुमति है।");
   await refresh();
  }catch(error){notice(error.message);}
