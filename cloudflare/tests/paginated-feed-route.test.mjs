@@ -18,7 +18,7 @@ test("paginated feed returns bounded approved-only items",async()=>{
   async all(){return {results:[
    {id:"b",headline_hi:"Hindi",summary_hi:"Summary",source_name:"Office",
     source_url:"https://example.org",source_publication_date:"2026-10-31",
-    category:"circular",district:"Gaya",updated_at:"now"},
+    category:"circular",district:"Gaya",updated_at:"now",status:"approved",retracted:0,source_verified:1,rights_checked:1},
    {id:"a",headline_hi:"Hindi",summary_hi:"Summary",source_name:"Office",
     source_url:"https://example.org",source_publication_date:"2026-10-31",
     category:"circular",district:"Gaya",updated_at:"now"}
