@@ -70,6 +70,22 @@ SELECT 'ASSERT_LICENSED_FEED' AS marker,count(*) AS count
  AND source_verified=1 AND rights_checked=1
  AND EXISTS (SELECT 1 FROM rights_evidence e WHERE e.item_id=editorial_items.id
  AND length(trim(e.permission_reference))>0 AND length(trim(e.permission_scope))>0);
+SELECT 'ASSERT_IMAGE_DENIED' AS marker,count(*) AS count FROM editorial_items
+ WHERE id='local-b' AND status='pending' AND EXISTS
+ (SELECT 1 FROM rights_evidence e WHERE e.item_id=editorial_items.id
+ AND lower(trim(e.permission_scope)) IN ('image','image_reuse'));
+INSERT INTO rights_evidence(id,item_id,permission_reference,permission_scope,reviewed_at)
+ VALUES ('image-rights-b','local-b','synthetic-image-test','image','now');
+UPDATE editorial_items SET image_key='editorial/local-b/sample.png',
+ version=version+1 WHERE id='local-b' AND status='pending' AND image_key IS NULL
+ AND EXISTS(SELECT 1 FROM rights_evidence e WHERE e.id='image-rights-b'
+ AND e.item_id=editorial_items.id AND lower(trim(e.permission_scope)) IN ('image','image_reuse'));
+SELECT 'ASSERT_IMAGE_ATTACHED' AS marker,image_key,version
+ FROM editorial_items WHERE id='local-b';
+UPDATE editorial_items SET image_key='editorial/local-b/duplicate.png',
+ version=version+1 WHERE id='local-b' AND status='pending' AND image_key IS NULL;
+SELECT 'ASSERT_IMAGE_NO_OVERWRITE' AS marker,image_key,version
+ FROM editorial_items WHERE id='local-b';
 SELECT 'ASSERT_ITEM' AS marker,status,version,last_review_event_id
  FROM editorial_items WHERE id='local-a';
 SELECT 'ASSERT_AUDIT' AS marker,count(*) AS count FROM review_events;
@@ -93,6 +109,15 @@ try {
   const licensed=rows.find(row=>row.marker==="ASSERT_LICENSED_FEED");
   if (!unlicensed || unlicensed.count!==0 || !licensed || licensed.count!==1)
     throw Error("Rights evidence feed assertions failed");
+  const imageDenied=rows.find(row=>row.marker==="ASSERT_IMAGE_DENIED");
+  const imageAttached=rows.find(row=>row.marker==="ASSERT_IMAGE_ATTACHED");
+  const imageNoOverwrite=rows.find(row=>row.marker==="ASSERT_IMAGE_NO_OVERWRITE");
+  if(!imageDenied||imageDenied.count!==0||!imageAttached||
+      imageAttached.image_key!=="editorial/local-b/sample.png"||
+      imageAttached.version!==4||!imageNoOverwrite||
+      imageNoOverwrite.image_key!==imageAttached.image_key||
+      imageNoOverwrite.version!==4)
+    throw Error("Private image attachment D1 assertions failed");
   const item=rows.find(row=>row.marker==="ASSERT_ITEM");
   const audit=rows.find(row=>row.marker==="ASSERT_AUDIT");
   const second=rows.find(row=>row.marker==="ASSERT_SECOND_ITEM");
