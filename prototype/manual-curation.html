@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>भू-अलर्ट बिहार — ऑफलाइन संपादकीय कार्यक्षेत्र</title>
+<style>
+:root{font:16px system-ui,sans-serif;color:#183b2d;background:#f4f8f5}*{box-sizing:border-box}
+main{max-width:880px;margin:auto;padding:16px}h1{font-size:1.6rem}h2{font-size:1.2rem}
+section,article{background:white;border:1px solid #dce8df;border-radius:12px;padding:16px;margin:14px 0}
+label{display:block;font-weight:600;margin:12px 0 5px}input,textarea,select{width:100%;font:inherit;border:1px solid #b5c7bb;border-radius:8px;padding:10px}
+textarea{min-height:85px}button{border:0;border-radius:8px;padding:10px 13px;margin:7px 7px 0 0;cursor:pointer;background:#e7efe9}
+button.primary{background:#126b44;color:white}button.danger{background:#fbe4e4;color:#8e2525}
+small,.muted{color:#51685b}.warning{border-left:4px solid #be8712;background:#fff4d8;padding:12px}
+.status{display:inline-block;background:#edf2ed;border-radius:20px;padding:3px 9px}
+#message{font-weight:600}a{color:#126b44}
+</style></head><body><main>
+<h1>भू-अलर्ट बिहार</h1><p class="muted">समाचार प्रविष्टि और मैनुअल समीक्षा — ऑफलाइन प्रोटोटाइप</p>
+<p class="warning">यह डेमो पूरी तरह आपके ब्राउज़र में चलता है। डेटा कहीं भेजा या सेव नहीं होता। पेज बंद/रीलोड करने पर सब मिट जाएगा। वास्तविक समाचार के प्रकाशन के लिए इसका उपयोग न करें।</p>
+<section><h2>नई समाचार प्रविष्टि</h2><form id="form">
+<label for="headline">शीर्षक (हिंदी)</label><input id="headline" maxlength="160" required>
+<label for="summary">मौलिक संक्षिप्त विवरण</label><textarea id="summary" maxlength="600" required></textarea>
+<label for="source">स्रोत का नाम</label><input id="source" maxlength="120" required>
+<label for="url">मूल स्रोत लिंक (HTTPS)</label><input id="url" type="url" required placeholder="https://example.org/notice">
+<label for="date">प्रकाशन तिथि</label><input id="date" type="date" required>
+<label for="category">श्रेणी</label><select id="category"><option value="circular">परिपत्र</option><option value="survey">सर्वेक्षण</option><option value="policy">नीति</option><option value="service">सेवा</option><option value="incident">घटना</option><option value="other">अन्य</option></select>
+<label for="district">जिला (वैकल्पिक)</label><input id="district" maxlength="80">
+<button class="primary" type="submit">समीक्षा सूची में जोड़ें</button></form><p id="message" role="status" aria-live="polite"></p></section>
+<section><h2>समीक्षा सूची</h2><p id="counts" aria-live="polite"></p><div id="queue"></div><button id="clear" type="button">सभी प्रविष्टियाँ हटाएँ</button></section>
+<section><h2>स्वीकृत समाचार का स्थानीय पूर्वावलोकन</h2><div id="preview"></div></section>
+</main><script>
+"use strict";
+const items=[];
+const byId=id=>document.getElementById(id);
+function text(tag,value){const node=document.createElement(tag);node.textContent=value;return node}
+function normalizeUrl(raw){const u=new URL(raw);if(u.protocol!=="https:"||!u.hostname||u.username||u.password)throw Error("केवल सुरक्षित HTTPS लिंक स्वीकार हैं।");u.hash="";return u.toString()}
+function render(){
+const q=byId("queue"),p=byId("preview");q.replaceChildren();p.replaceChildren();
+let approved=0,rejected=0;
+for(const item of items){
+if(item.status==="approved")approved++;if(item.status==="rejected")rejected++;
+const card=document.createElement("article");
+card.append(text("span",item.status==="pending"?"लंबित":item.status==="approved"?"स्वीकृत":"अस्वीकृत"),text("h3",item.headline),text("p",item.summary),text("small",item.source+" · "+item.date+" · "+item.category+" · "+(item.district||"सभी जिले")));
+const link=text("a","मूल स्रोत देखें");link.href=item.url;link.target="_blank";link.rel="noopener noreferrer";card.append(document.createElement("p"));card.lastChild.append(link);
+if(item.status==="pending"){
+for(const [choice,label,cls] of [["approved","स्वीकृत करें","primary"],["rejected","अस्वीकृत करें","danger"]]){
+const b=text("button",label);b.type="button";b.className=cls;b.addEventListener("click",()=>{item.status=choice;render()});card.append(b);
+}}
+q.append(card);
+if(item.status==="approved"){const entry=document.createElement("article");entry.append(text("h3",item.headline),text("p",item.summary),text("small",item.source+" · "+item.date));p.append(entry)}
+}
+if(!items.length)q.append(text("p","कोई समाचार प्रविष्टि नहीं।"));
+if(!approved)p.append(text("p","अभी कोई स्वीकृत समाचार नहीं।"));
+byId("counts").textContent="लंबित: "+(items.length-approved-rejected)+" | स्वीकृत: "+approved+" | अस्वीकृत: "+rejected;
+}
+byId("form").addEventListener("submit",event=>{
+event.preventDefault();const value=id=>byId(id).value.trim();
+try{
+const url=normalizeUrl(value("url"));
+if(items.some(item=>item.url===url))throw Error("यह स्रोत लिंक पहले से मौजूद है।");
+const date=value("date");if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date)))throw Error("वैध तिथि भरें।");
+if(date>new Date().toISOString().slice(0,10))throw Error("भविष्य की प्रकाशन तिथि स्वीकार नहीं है।");
+items.push({headline:value("headline"),summary:value("summary"),source:value("source"),url,date,category:value("category"),district:value("district"),status:"pending"});
+byId("form").reset();byId("message").textContent="समाचार समीक्षा सूची में जोड़ा गया; प्रकाशित नहीं हुआ।";render();
+}catch(error){byId("message").textContent=error.message;}
+});
+byId("clear").addEventListener("click",()=>{items.length=0;byId("message").textContent="स्थानीय सूची साफ की गई।";render()});render();
+</script></body></html>
