@@ -78,7 +78,6 @@ export async function reviewDraft(db, {id, action, version, reviewerId, reason, 
       EXISTS (SELECT 1 FROM rights_evidence WHERE item_id=? AND length(trim(permission_reference))>0 AND lower(permission_scope) LIKE '%image%') AS image_rights`).bind(id,id).first();
     rightsEvidencePresent = evidence?.source_rights === 1;
     imageRightsPresent = evidence?.image_rights === 1;
-    if (!rightsEvidencePresent) throw Error("rights_evidence_missing");
   }
   const result = evaluateReviewAction({
     ...item, source_verified:item.source_verified === 1,
@@ -87,6 +86,7 @@ export async function reviewDraft(db, {id, action, version, reviewerId, reason, 
     image_rights_checked:imageRightsPresent
   },action,true);
   if (!result.ok) throw Error(result.error);
+  if (action === "approve" && !rightsEvidencePresent) throw Error("rights_evidence_missing");
   const eventId = crypto.randomUUID();
   const next = result.nextStatus;
   const updates = db.prepare(`UPDATE editorial_items SET status=?,retracted=?,
