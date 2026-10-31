@@ -8,6 +8,7 @@
     "NEWS_PUBLISHING_ENABLED": "false",
     "NEWS_COLLECTION_ENABLED": "false",
     "EDITORIAL_WRITES_ENABLED": "false",
+    "EDITORIAL_IMAGE_WRITES_ENABLED": "false",
     "AUTH_ENABLED": "false"
   }
 }
