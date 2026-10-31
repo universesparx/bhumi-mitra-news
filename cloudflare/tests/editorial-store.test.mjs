@@ -12,7 +12,7 @@ class MockDB {
     this.item=item;this.statements=[];this.batches=[];
   }
   prepare(sql) {
-    return {bind:(...args)=>({sql,args,first:async()=>this.item})};
+    return {bind:(...args)=>({sql,args,first:async()=>sql.includes("AS source_rights") ? {source_rights:1,image_rights:0} : this.item})};
   }
   async batch(statements) {
     this.batches.push(statements);
