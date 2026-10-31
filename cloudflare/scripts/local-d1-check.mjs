@@ -34,6 +34,30 @@ INSERT INTO review_events(id,item_id,action,reviewer_id,reason,occurred_at)
  SELECT 'review-stale',id,'approve','synthetic-owner','stale','later'
  FROM editorial_items WHERE id='local-a' AND version=2
  AND status='approved' AND last_review_event_id='review-stale';
+INSERT INTO editorial_items (id,headline_hi,summary_hi,source_name,source_url,
+ source_publication_date,category,created_at,updated_at)
+VALUES ('local-b','Second test','Summary','Synthetic','https://example.org/local-b',
+ '2026-10-31','survey','now','now');
+INSERT INTO review_events(id,item_id,action,reviewer_id,occurred_at)
+ VALUES ('create-b','local-b','create','synthetic-owner','now');
+UPDATE editorial_items SET status='rejected',version=version+1,
+ last_review_event_id='reject-b',updated_at='later'
+ WHERE id='local-b' AND version=1 AND status='pending';
+INSERT INTO review_events(id,item_id,action,reviewer_id,reason,occurred_at)
+ SELECT 'reject-b',id,'reject','synthetic-owner','needs verification','later'
+ FROM editorial_items WHERE id='local-b' AND version=2
+ AND status='rejected' AND last_review_event_id='reject-b';
+UPDATE editorial_items SET status='pending',version=version+1,
+ last_review_event_id='correct-b',updated_at='latest'
+ WHERE id='local-b' AND version=2 AND status='rejected';
+INSERT INTO review_events(id,item_id,action,reviewer_id,reason,occurred_at)
+ SELECT 'correct-b',id,'correct','synthetic-owner','updated','latest'
+ FROM editorial_items WHERE id='local-b' AND version=3
+ AND status='pending' AND last_review_event_id='correct-b';
+SELECT 'ASSERT_SECOND_ITEM' AS marker,status,version,last_review_event_id
+ FROM editorial_items WHERE id='local-b';
+SELECT 'ASSERT_SECOND_AUDIT' AS marker,count(*) AS count
+ FROM review_events WHERE item_id='local-b';
 SELECT 'ASSERT_ITEM' AS marker,status,version,last_review_event_id
  FROM editorial_items WHERE id='local-a';
 SELECT 'ASSERT_AUDIT' AS marker,count(*) AS count FROM review_events;
@@ -55,10 +79,15 @@ try {
   const rows=parsed.flatMap(batch=>batch.results||[]);
   const item=rows.find(row=>row.marker==="ASSERT_ITEM");
   const audit=rows.find(row=>row.marker==="ASSERT_AUDIT");
+  const second=rows.find(row=>row.marker==="ASSERT_SECOND_ITEM");
+  const secondAudit=rows.find(row=>row.marker==="ASSERT_SECOND_AUDIT");
+  if (!second || second.status!=="pending" || second.version!==3 ||
+      second.last_review_event_id!=="correct-b" || !secondAudit ||
+      secondAudit.count!==3) throw Error("Reject/correct D1 assertions failed");
   if (!item || item.status!=="approved" || item.version!==2 ||
-      item.last_review_event_id!=="review-1" || !audit || audit.count!==1)
+      item.last_review_event_id!=="review-1" || !audit || audit.count!==4)
     throw Error("Local D1 assertions failed: "+JSON.stringify(rows));
-  process.stdout.write("Local D1 migration and stale-approval assertions passed.\n");
+  process.stdout.write("Local D1 migration, stale-approval, rejection and correction assertions passed.\n");
 } finally {
   rmSync(scratch,{recursive:true,force:true});
 }
