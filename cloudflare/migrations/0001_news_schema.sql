@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS editorial_items (
   retracted INTEGER NOT NULL DEFAULT 0 CHECK (retracted IN (0,1)),
   image_key TEXT,
   version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
+  last_review_event_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
