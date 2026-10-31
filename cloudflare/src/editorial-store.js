@@ -1,11 +1,10 @@
 import {evaluateReviewAction} from "./review-policy.js";
 
-const STATUSES = new Set(["pending","approved","rejected"]);
 const CATEGORIES = new Set(["survey","circular","policy","service","incident","other"]);
 const fields = ["id","headline_hi","summary_hi","source_name","source_url",
   "source_publication_date","category","district","created_at","updated_at"];
 
-function validateDraft(draft) {
+export function validateDraft(draft) {
   if (!draft || typeof draft !== "object" || Array.isArray(draft)) throw Error("invalid_draft");
   for (const field of fields) {
     if (typeof draft[field] !== "string" || !draft[field].trim()) {
@@ -13,11 +12,25 @@ function validateDraft(draft) {
       throw Error("invalid_" + field);
     }
   }
-  if (draft.headline_hi.length > 160 || draft.summary_hi.length > 1000 ||
-      !CATEGORIES.has(draft.category)) throw Error("invalid_draft_fields");
-  const url = new URL(draft.source_url);
+  for (const [key,max] of Object.entries({headline_hi:160,summary_hi:1000,
+    source_name:180,source_url:2048,district:120})) {
+    if (draft[key].length > max || /[\\u0000-\\u001f\\u007f]/u.test(draft[key]))
+      throw Error("invalid_" + key);
+  }
+  if (!CATEGORIES.has(draft.category)) throw Error("invalid_category");
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(draft.source_publication_date))
+    throw Error("invalid_source_date");
+  const parsedDate = new Date(draft.source_publication_date+"T00:00:00Z");
+  if (!Number.isFinite(parsedDate.getTime()) ||
+      parsedDate.toISOString().slice(0,10) !== draft.source_publication_date ||
+      parsedDate.getTime() > Date.now()+86400000)
+    throw Error("invalid_source_date");
+  let url;
+  try { url = new URL(draft.source_url); }
+  catch { throw Error("invalid_source_url"); }
   if (url.protocol !== "https:" || url.username || url.password ||
-      !url.hostname || url.hash) throw Error("invalid_source_url");
+      !url.hostname || url.hash || !url.hostname.includes(".") ||
+      url.port && url.port !== "443") throw Error("invalid_source_url");
   if (draft.status !== undefined && draft.status !== "pending") throw Error("status_must_be_pending");
   return {...draft, source_url: url.href};
 }
