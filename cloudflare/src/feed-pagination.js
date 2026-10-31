@@ -12,7 +12,7 @@ export async function readApprovedPage(db,{limit=20,category=null,district=null,
  const opts=normalizeFeedOptions({limit,category,district});
  validateCursor(cursor);
  if(!db?.prepare)throw Error("db_required");
- const clauses=["status='approved'","retracted=0","source_verified=1","rights_checked=1"];
+ const clauses=["status='approved'","retracted=0","source_verified=1","rights_checked=1","EXISTS (SELECT 1 FROM rights_evidence e WHERE e.item_id=editorial_items.id AND length(trim(e.permission_reference))>0 AND length(trim(e.permission_scope))>0)"];
  const args=[];
  if(opts.category!==null){clauses.push("category=?");args.push(opts.category);}
  if(opts.district!==null){clauses.push("district=?");args.push(opts.district);}
