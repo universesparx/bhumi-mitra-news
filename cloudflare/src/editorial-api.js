@@ -84,6 +84,9 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
   if (action === "session")
     return json({authenticated:true,role:"owner",publishing_enabled:false,
       writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&
+      typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB),
+      image_writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&
+      env.EDITORIAL_IMAGE_WRITES_ENABLED === "true" && Boolean(env.NEWS_IMAGES) &&
       typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB)},200);
   if (action === "history") {
     if (!env.NEWS_DB) return json({error:"database_unavailable"},503);
