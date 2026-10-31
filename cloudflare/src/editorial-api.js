@@ -22,11 +22,13 @@ function sameOrigin(request) {
 }
 async function readJson(request) {
   if (!(request.headers.get("content-type") || "").toLowerCase()
-    .startsWith("application/json")) throw Error("json_required");
+    .match(/^application\\/json(?:\\s*;|$)/)) throw Error("json_required");
   const length = Number(request.headers.get("content-length"));
-  if (Number.isFinite(length) && length > 16384) throw Error("body_too_large");
+  if (request.headers.has("content-length") &&
+      (!Number.isSafeInteger(length) || length < 0 || length > 16384))
+    throw Error("body_too_large");
   const raw = await request.text();
-  if (raw.length > 16384) throw Error("body_too_large");
+  if (new TextEncoder().encode(raw).length > 16384) throw Error("body_too_large");
   const value = JSON.parse(raw);
   if (!value || typeof value !== "object" || Array.isArray(value))
     throw Error("invalid_json");
