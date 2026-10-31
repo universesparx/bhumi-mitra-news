@@ -44,3 +44,9 @@ test("both evidence lookup and conditional attachment require image-specific sco
  assert.equal(queries.length,2);
  for(const sql of queries)assert.match(sql,/lower\((?:e\.)?permission_scope\) LIKE '%image%'/);
 });
+
+test("R2 upload failure is sanitized and does not attempt D1 attachment",async()=>{
+ const f=fixture({failWrite:true});
+ await assert.rejects(storeEditorialImage({...args,...f,request:req()}),/image_storage_failed/);
+ assert.equal(f.calls.filter(x=>x[0]==="sql"&&x[1].includes("UPDATE")).length,0);
+});
