@@ -63,7 +63,7 @@ export async function reviewDraft(db, {id, action, version, reviewerId, reason, 
       !new Set(["approve","reject","correct","retract"]).has(action) ||
       typeof now !== "string" || !Number.isFinite(Date.parse(now)) ||
       typeof reason !== "string" || reason.length > 1000 ||
-      /[\\u0000-\\u001f\\u007f]/u.test(reason) ||
+      /[\u0000-\u001f\u007f]/u.test(reason) ||
       (action === "reject" || action === "retract") && !reason.trim())
     throw Error("invalid_review_input");
   const item = await db.prepare(`SELECT id,status,version,source_verified,
