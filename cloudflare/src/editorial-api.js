@@ -1,3 +1,4 @@
+import {listEditorialDrafts} from "./editorial-list.js";
 import {requireOwner} from "./auth.js";
 import {verifyAccessJwt} from "./verify-access-jwt.js";
 import {createDraft, reviewDraft} from "./editorial-store.js";
@@ -10,6 +11,7 @@ function json(body, status) {
 }
 const route = (path, method) => {
   if (path === "/api/editorial/session" && method === "GET") return "session";
+  if (path === "/api/editorial/drafts" && method === "GET") return "list";
   if (path === "/api/editorial/drafts" && method === "POST") return "create";
   if (path === "/api/editorial/review" && method === "POST") return "review";
   return null;
@@ -79,6 +81,22 @@ export async function handleEditorial(request, env, verifier = verifyAccessJwt) 
     return json({authenticated:true,role:"owner",publishing_enabled:false,
       writes_enabled:env.EDITORIAL_WRITES_ENABLED === "true" &&
       typeof env.EDITORIAL_ORIGIN === "string" && Boolean(env.NEWS_DB)},200);
+  if (action === "list") {
+    if (!env.NEWS_DB) return json({error:"database_unavailable"},503);
+    const url = new URL(request.url);
+    if ([...url.searchParams.keys()].some(key=>!["status","limit"].includes(key)) ||
+        ["status","limit"].some(key=>url.searchParams.getAll(key).length>1))
+      return json({error:"invalid_query"},400);
+    const rawLimit=url.searchParams.get("limit");
+    if (rawLimit!==null && !/^[1-9][0-9]*$/.test(rawLimit))
+      return json({error:"invalid_query"},400);
+    try {
+      const items=await listEditorialDrafts(env.NEWS_DB,{
+        status:url.searchParams.get("status") || "pending",
+        limit:rawLimit===null?30:Number(rawLimit)});
+      return json({items},200);
+    } catch {return json({error:"invalid_or_unavailable"},400);}
+  }
   if (env.EDITORIAL_WRITES_ENABLED !== "true" || !env.NEWS_DB)
     return json({error:"editorial_writes_disabled"},503);
   if (!sameOrigin(request, env)) return json({error:"origin_denied"},403);
