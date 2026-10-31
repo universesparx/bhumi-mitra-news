@@ -32,8 +32,9 @@ export async function readApprovedPage(db,{limit=20,category=null,district=null,
  const result=await db.prepare(sql).bind(...args,Math.min(opts.limit+1,MAX_PAGE_SIZE+1)).all();
  const rows=(result.results||[]).slice(0,opts.limit+1);
  const hasMore=rows.length>opts.limit;
- const items=rows.slice(0,opts.limit).map(projectApprovedItem).filter(Boolean);
- const last=rows.slice(0,opts.limit).at(-1);
+ const pageRows=rows.slice(0,opts.limit);
+ const items=pageRows.map(projectApprovedItem).filter(Boolean);
+ const last=pageRows.at(-1);
  return {items,next_cursor:hasMore&&last?
   last.source_publication_date+"|"+last.id:null};
 }
