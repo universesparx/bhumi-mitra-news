@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer"><title>भू-अलर्ट बिहार · संपादक</title>
+<style>
+:root{font:16px system-ui,"Noto Sans Devanagari",sans-serif;color:#17362a;background:#f5f8f6}
+*{box-sizing:border-box}body{margin:0}header{background:#176246;color:white;padding:1.2rem}
+header h1{margin:0;font-size:1.4rem}main{max-width:1050px;margin:1rem auto;padding:0 1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+section{background:white;border:1px solid #d5e3d9;border-radius:12px;padding:1rem;min-width:0}
+label{display:block;margin:.6rem 0 .2rem;font-weight:600}input,select,textarea{width:100%;font:inherit;padding:.65rem;border:1px solid #a2b9ac;border-radius:7px}
+textarea{min-height:110px}button{font:inherit;border:0;border-radius:7px;background:#176246;color:white;padding:.65rem 1rem;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}button.secondary{background:#eef4f0;color:#176246}
+.row{display:flex;gap:.5rem;flex-wrap:wrap;margin:.8rem 0}.row>*{flex:1}
+article{padding:1rem 0;border-bottom:1px solid #d5e3d9;overflow-wrap:anywhere}
+article h3{font-size:1rem;margin:0 0 .3rem}small{color:#516c5e}#notice{min-height:1.5rem}
+@media(max-width:740px){main{grid-template-columns:1fr}}
+</style></head><body>
+<header><h1>भू-अलर्ट बिहार · संपादकीय कार्यक्षेत्र</h1><div>निजी संपादक · सर्वर पर सहेजे गए ड्राफ्ट</div></header>
+<main><section><h2>समाचार ड्राफ्ट</h2>
+<form id="draft">
+<label for="headline">शीर्षक</label><input id="headline" maxlength="160" required>
+<label for="summary">संक्षिप्त विवरण</label><textarea id="summary" maxlength="1000" required></textarea>
+<label for="source">स्रोत</label><input id="source" maxlength="180" required>
+<label for="url">मूल HTTPS लिंक</label><input id="url" type="url" required>
+<label for="date">प्रकाशन तिथि</label><input id="date" type="date" required>
+<label for="category">श्रेणी</label><select id="category"><option value="survey">सर्वेक्षण</option><option value="circular">परिपत्र</option><option value="policy">नीति</option><option value="service">सेवा</option><option value="incident">घटना</option><option value="other">अन्य</option></select>
+<label for="district">जिला (वैकल्पिक)</label><input id="district" maxlength="120">
+<div class="row"><button id="save" type="submit" disabled>ड्राफ्ट सहेजें</button></div>
+</form><p id="notice" role="status" aria-live="polite"></p>
+<p><small>प्रकाशन स्वचालित नहीं है। स्रोत की अनुमति और सत्यापन अलग से आवश्यक हैं।</small></p>
+</section><section><h2>समीक्षा सूची</h2>
+<div class="row"><select id="status" aria-label="स्थिति"><option value="pending">लंबित</option><option value="approved">स्वीकृत</option><option value="rejected">अस्वीकृत</option></select><button id="refresh" class="secondary" type="button">ताज़ा करें</button></div>
+<div id="items"></div></section></main>
+<script>
+"use strict";
+// Same-origin only. Cloudflare Access authenticates requests; no tokens stored in the browser.
+const $=id=>document.getElementById(id);
+const txt=(tag,value)=>{const el=document.createElement(tag);el.textContent=String(value??"");return el;};
+const api=async(path,options={})=>{
+ const response=await fetch(path,{...options,credentials:"same-origin",cache:"no-store",headers:{
+  ...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})}});
+ let data;try{data=await response.json();}catch{throw Error("सर्वर से अमान्य उत्तर मिला");}
+ if(!response.ok)throw Error("अनुरोध असफल: "+(data.error||response.status));
+ return data;
+};
+const notice=message=>{$("notice").textContent=message;};
+async function refresh(){
+ const target=$("items");target.replaceChildren(txt("p","लोड हो रहा है…"));
+ try{
+  const status=encodeURIComponent($("status").value);
+  const data=await api("/api/editorial/drafts?status="+status+"&limit=50");
+  target.replaceChildren();
+  for(const item of data.items){
+   const card=document.createElement("article");
+   card.append(txt("h3",item.headline_hi),txt("p",item.summary_hi),
+    txt("small",item.source_name+" · "+item.source_publication_date+" · v"+item.version));
+   const link=document.createElement("a");
+   link.href=item.source_url;link.textContent="मूल स्रोत";link.target="_blank";link.rel="noopener noreferrer";
+   card.append(link);
+   if(item.status==="pending"){
+    const actions=document.createElement("div");actions.className="row";
+    for(const [action,label] of [["approve","स्वीकृत करें"],["reject","अस्वीकार करें"]]){
+     const btn=document.createElement("button");btn.type="button";btn.textContent=label;
+     btn.addEventListener("click",async()=>{
+      const reason=action==="reject"?window.prompt("अस्वीकार करने का कारण"): "";
+      if(reason===null || action==="reject"&&!reason.trim())return;
+      btn.disabled=true;
+      try{await api("/api/editorial/review",{method:"POST",body:JSON.stringify({
+       id:item.id,version:item.version,action,reason})});
+       notice("समीक्षा दर्ज की गई");await refresh();
+      }catch(error){notice(error.message);btn.disabled=false;}
+     });actions.append(btn);
+    }card.append(actions);
+   }
+   target.append(card);
+  }
+  if(!data.items.length)target.append(txt("p","इस स्थिति में कोई समाचार नहीं।"));
+ }catch(error){target.replaceChildren(txt("p",error.message));}
+}
+$("draft").addEventListener("submit",async event=>{
+ event.preventDefault();$("save").disabled=true;
+ try{
+  const body={headline_hi:$("headline").value.trim(),summary_hi:$("summary").value.trim(),
+   source_name:$("source").value.trim(),source_url:$("url").value.trim(),
+   source_publication_date:$("date").value,category:$("category").value,district:$("district").value.trim()};
+  await api("/api/editorial/drafts",{method:"POST",body:JSON.stringify(body)});
+  $("draft").reset();notice("ड्राफ्ट सुरक्षित किया गया");await refresh();
+ }catch(error){notice(error.message);}
+ finally{$("save").disabled=false;}
+});
+$("refresh").addEventListener("click",refresh);$("status").addEventListener("change",refresh);
+(async()=>{
+ try{const session=await api("/api/editorial/session");
+  if(!session.authenticated)throw Error("लॉगिन आवश्यक है");
+  $("save").disabled=!session.writes_enabled;
+  if(!session.writes_enabled)notice("संपादन अभी बंद है; केवल पढ़ने की अनुमति है।");
+  await refresh();
+ }catch(error){notice(error.message);}
+})();
+</script></body></html>
