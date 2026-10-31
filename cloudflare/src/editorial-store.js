@@ -14,7 +14,7 @@ export function validateDraft(draft) {
   }
   for (const [key,max] of Object.entries({headline_hi:160,summary_hi:1000,
     source_name:180,source_url:2048,district:120})) {
-    if (draft[key].length > max || /[\\u0000-\\u001f\\u007f]/u.test(draft[key]))
+    if (draft[key].length > max || /[\u0000-\u001f\u007f]/u.test(draft[key]))
       throw Error("invalid_" + key);
   }
   if (!CATEGORIES.has(draft.category)) throw Error("invalid_category");
